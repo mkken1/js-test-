@@ -5,7 +5,6 @@
  */
 
 const fs = require("fs");
-const path = require("path");
 
 /**
  * createStore — создаёт хранилище с сохранением в JSON-файл
@@ -14,64 +13,68 @@ const path = require("path");
  * @returns {Object} - объект с методами: getAll, getById, add, update, remove
  */
 function createStore(filepath) {
+  let data = [];
+  let nextId = 1;
+
+  const load = () => {
+    if (fs.existsSync(filepath)) {
+      try {
+        const content = fs.readFileSync(filepath, "utf-8").trim();
+        data = content ? JSON.parse(content) : [];
+
+        if (data.length > 0) {
+          nextId = Math.max(...data.map((item) => item.id)) + 1;
+        } else {
+          nextId = 1;
+        }
+      } catch (e) {
+        data = [];
+        nextId = 1;
+      }
+    } else {
+      data = [];
+      nextId = 1;
+    }
+  };
+
+  const save = () => {
+    fs.writeFileSync(filepath, JSON.stringify(data), "utf-8");
+  };
+
+  load();
+
   return {
-    path: filepath,
-    getAll: () => {
-      if (fs.existsSync(this.path)) {
-        const data = fs.readFileSync(this.path, "utf-8");
-        return JSON.parse(data);
-      }
-      fs.writeFileSync(this.path, "[]");
-      return [];
+    getAll() {
+      return [...data];
     },
-    getById: (id) => {
-      let parsedData = null;
-      if (fs.existsSync(this.path)) {
-        const data = fs.readFileSync(this.path, "utf-8");
-        parsedData = JSON.parse(data);
-      }
-      const todo = parsedData?.find((t) => t.id === id);
-      return todo || null;
+    getById(id) {
+      return data.find((item) => item.id === id) || null;
     },
-    add: (todo) => {
-      let parsedData = null;
-      if (fs.existsSync(this.path)) {
-        const data = fs.readFileSync(this.path, "utf-8");
-        parsedData = JSON.parse(data);
-      }
-      parsedData.push(todo);
-      fs.writeFileSync(this.path, JSON.stringify(parsedData));
-      return todo;
+    add(item) {
+      const newItem = { id: nextId++, ...item };
+      data.push(newItem);
+      save();
+      return newItem;
     },
-    update: (id, updatedTodo) => {
-      let parsedData = null;
-      if (fs.existsSync(this.path)) {
-        const data = fs.readFileSync(this.path, "utf-8");
-        parsedData = JSON.parse(data);
-      }
-      const index = parsedData.findIndex((t) => t.id === id);
-      if (index !== -1) {
-        parsedData[index] = { ...parsedData[index], ...updatedTodo };
-        fs.writeFileSync(this.path, JSON.stringify(parsedData));
-        return parsedData[index];
-      }
-      return null;
+    update(id, changes) {
+      const index = data.findIndex((item) => item.id === id);
+      if (index === -1) return null;
+
+      Object.assign(data[index], changes);
+      save();
+      return data[index];
     },
-    remove: (id) => {
-      let parsedData = null;
-      if (fs.existsSync(this.path)) {
-        const data = fs.readFileSync(this.path, "utf-8");
-        parsedData = JSON.parse(data);
-      }
-      const index = parsedData.findIndex((t) => t.id === id);
-      if (index !== -1) {
-        parsedData.splice(index, 1)[0];
-        fs.writeFileSync(this.path, JSON.stringify(parsedData));
-        return true;
-      }
-      return false;
+    remove(id) {
+      const index = data.findIndex((item) => item.id === id);
+      if (index === -1) return false;
+
+      data.splice(index, 1);
+      save();
+      return true;
     },
   };
 }
+
+module.exports = { createStore };
 
 module.exports = { createStore };
